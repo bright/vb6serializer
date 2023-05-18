@@ -2,19 +2,18 @@ package dev.bright.vb6serializer
 
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
-import kotlinx.serialization.descriptors.elementDescriptors
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.modules.SerializersModule
 import java.io.ByteArrayOutputStream
+import java.io.EOFException
 
 @OptIn(ExperimentalSerializationApi::class)
-internal open class BinaryDecoderBase(protected val input: Input, override val serializersModule: SerializersModule) :
-    Decoder, CompositeDecoder {
-    private var currentElementIndex = -1
+internal open class BinaryDecoder(override val input: Input, override val serializersModule: SerializersModule) :
+    Decoder, CompositeDecoder, HasInput {
+    private var currentElementIndex = 0
     override fun decodeBooleanElement(descriptor: SerialDescriptor, index: Int): Boolean {
         return input.readBoolean()
     }
@@ -32,11 +31,10 @@ internal open class BinaryDecoderBase(protected val input: Input, override val s
     }
 
     override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
-        if (input.isComplete) {
+        if (input.isComplete || (descriptor.kind == StructureKind.CLASS && currentElementIndex == descriptor.elementsCount)) {
             return CompositeDecoder.DECODE_DONE
         }
-        currentElementIndex += 1
-        return currentElementIndex
+        return currentElementIndex.also { currentElementIndex += 1 }
     }
 
     override fun decodeFloatElement(descriptor: SerialDescriptor, index: Int): Float {
@@ -121,20 +119,27 @@ internal open class BinaryDecoderBase(protected val input: Input, override val s
 
     override fun decodeString(): String {
         val byteStream = ByteArrayOutputStream(16)
-        var byte: Int
-        do {
-            byte = input.readUnsignedByte()
-            byteStream.write(byte)
-        } while (byte != 0)
+
+        try {
+            var byte: Int
+            do {
+
+                byte = input.readUnsignedByte()
+                byteStream.write(byte)
+
+            } while (byte != 0)
+        } catch (_: EOFException) {
+        }
 
         val contents = byteStream.toByteArray()
+
         return String(
             contents, 0, contents.size, serializingCharset
         )
     }
 
     override fun beginStructure(descriptor: SerialDescriptor): CompositeDecoder {
-        return this
+        return BinaryDecoder(input, serializersModule)
     }
 
     override fun decodeStringElement(descriptor: SerialDescriptor, index: Int): String {
@@ -142,7 +147,7 @@ internal open class BinaryDecoderBase(protected val input: Input, override val s
         return decodeStringWithLength(length.length)
     }
 
-    protected fun decodeStringWithLength(byteLength: Int): String {
+    internal fun decodeStringWithLength(byteLength: Int): String {
         val contents = ByteArray(byteLength)
         input.readFully(contents)
         val nonPaddedLength = contents.indexOf(0)
@@ -168,29 +173,16 @@ internal open class BinaryDecoderBase(protected val input: Input, override val s
     private fun <T> decodeSerializableList(
         descriptor: SerialDescriptor, index: Int, deserializer: DeserializationStrategy<T>
     ): T {
-        val collectionSize = descriptor.requireSizeOnElement(index)
+        return if (deserializer is ConstByteSizeDeserializationStrategy<T>) {
+            decodeSerializableValue(deserializer)
+        } else {
+            val collectionSize = descriptor.requireSizeOnElement(index)
 
-        val listDescriptor = descriptor.getElementDescriptor(index)
-
-        val listElementDescriptor = listDescriptor.elementDescriptors.firstOrNull()
-
-        if (listElementDescriptor?.kind == PrimitiveKind.STRING) { // strings are the only primitives with variable length
-            val explicitListElementSize = descriptor.findElementSizeOnElement(index)
-            val elementByteSize = explicitListElementSize?.length ?: listDescriptor.listElementByteSize()
-
-            return deserializer.deserialize(
-                HasFixedStructureDecoder(
-                    input, FixedSizeStringCollectionOfSizeDecoder(
-                        collectionSize.length, input, serializersModule, elementByteSize
-                    )
+            deserializer.deserialize(
+                HasConstStructureDecoder(
+                    input, ConstSizeCollectionDecoder(collectionSize.length, input, serializersModule)
                 )
             )
         }
-
-        return deserializer.deserialize(
-            HasFixedStructureDecoder(
-                input, FixedSizeCollectionSizeDecoder(collectionSize.length, input, serializersModule)
-            )
-        )
     }
 }

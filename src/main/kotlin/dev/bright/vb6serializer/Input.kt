@@ -1,5 +1,6 @@
 package dev.bright.vb6serializer
 
+import java.io.ByteArrayInputStream
 import java.io.DataInput
 import java.io.DataInputStream
 import java.io.InputStream
@@ -13,6 +14,9 @@ internal class Input private constructor(
         return reader().also {
             val afterRead = stream.bytesRead
             val bytesRead = afterRead - beforeRead
+            if (bytesRead > expectedBytesToRead) {
+                throw IllegalStateException("Read more bytes $bytesRead than expected $expectedBytesToRead")
+            }
             if (bytesRead < expectedBytesToRead) {
                 stream.skip((expectedBytesToRead - bytesRead).toLong())
             }
@@ -23,6 +27,11 @@ internal class Input private constructor(
         return "Input(stream=$stream, dataInput=$dataInput)"
     }
 
+    fun withBytesLimitedTo(elementByteSize: Int): Input {
+        val limitedStream = stream.withBytesLimitedTo(elementByteSize)
+        return Input(limitedStream)
+    }
+
     // TODO: that's not accurate
     val isComplete: Boolean get() = stream.available() <= 0
 
@@ -31,7 +40,9 @@ internal class Input private constructor(
     }
 }
 
-internal class ByteCountingInputStream(private val inner: InputStream) : InputStream() {
+internal class ByteCountingInputStream(
+    private val inner: InputStream,
+) : InputStream() {
     var bytesRead: Int = 0
         private set
 
@@ -90,5 +101,16 @@ internal class ByteCountingInputStream(private val inner: InputStream) : InputSt
     override fun markSupported(): Boolean {
         return inner.markSupported()
     }
+
+    fun withBytesLimitedTo(bytesLimit: Int): ByteCountingInputStream {
+        val buffer = ByteArray(bytesLimit)
+        val readLength = read(buffer)
+        return ByteCountingInputStream(ByteArrayInputStream(buffer, 0, readLength))
+    }
 }
+
+internal interface HasInput {
+    val input: Input
+}
+
 

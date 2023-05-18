@@ -1,25 +1,26 @@
-@file:OptIn(ExperimentalSerializationApi::class)
-
 package dev.bright.vb6serializer
 
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import kotlinx.serialization.*
-import org.junit.jupiter.api.Disabled
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.IntArraySerializer
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
 import org.junit.jupiter.api.Test
 
 class VB6BinaryTests {
 
     @Test
-    @Disabled("Without max length encoding we aren't able to serialize properly")
+//    @Disabled("Without max length encoded in output we aren't able to ser/de safely, are we?")
     fun `can serialize a string`() {
         // given
         val input = "VB6 is fun! "
         // when
-        val serialized = VB6Binary.encodeToByteArray(input)
-        val deserialized = VB6Binary.decodeFromByteArray<String>(serialized)
+        val output = serde(input)
 
         // then
-        deserialized.shouldBe(input)
+        output.shouldBe(input)
     }
 
     @Test
@@ -110,73 +111,154 @@ class VB6BinaryTests {
         // @Size(2) String "" --serialise--> [0,0] --deserialize--> (String) null
     }
 
-    @Serializable
-    data class HasName(@Size(10) val name: String)
+    @Test
+    fun `can serialize int array inside array with list of strings`() {
+        // given
+        val input = HasListOfIntArrays(
+            listOf(
+                IntArray(3) { it + 1 }
+            )
+        )
 
-    @Serializable
-    data class HasNameAndAge(@Size(10) val name: String, val age: Int)
+        // when
+        val output = serde(input)
 
-    @Serializable
-    data class HasNameAndNestedObject(@Size(10) val name: String, val info: HasNameAndAge)
-
-    @Serializable
-    data class HasIntArray(
-        @Size(5)
-        val array: IntArray,
-        val other: Int
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as HasIntArray
-
-            if (!array.contentEquals(other.array)) return false
-            return this.other == other.other
-        }
-
-        override fun hashCode(): Int {
-            var result = array.contentHashCode()
-            result = 31 * result + other
-            return result
-        }
+        // then
+        output.items.shouldHaveSize(HasListOfIntArrays.HasListOfIntArraysItemSize)
+        output.items[0].shouldBe(input.items[0])
+        output.items[1].shouldBe(IntArray(3) { 0 })
     }
 
-    @Serializable
-    data class HasShortArray(
-        @Size(5)
-        val array: ShortArray,
-        @Size(6)
-        val other: String
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
+    @Test
+    fun `can serialize has list of has item code`() {
+        // given
+        val input = HasListOfHasItemCode(
+            listOf(
+                HasItemCode("P1"),
+                HasItemCode("P23")
+            )
+        )
 
-            other as HasShortArray
+        // when
+        val output = serde(input)
 
-            if (!array.contentEquals(other.array)) return false
-            return this.other == other.other
-        }
-
-        override fun hashCode(): Int {
-            var result = array.contentHashCode()
-            result = 31 * result + other.hashCode()
-            return result
-        }
+        // then
+        output.items.shouldHaveSize(HasListOfHasItemCode.ItemsSize)
+        output.items[0].itemCode.shouldBe("P1")
+        output.items[1].itemCode.shouldBe("P23")
+        output.items[2].itemCode.shouldBe("")
     }
-
-    @Serializable
-    data class HasListOfBytes(
-        @Size(6)
-        val items: List<Byte>,
-    )
 
 
 }
 
+@Serializable
+data class HasItemCode(@Size(ItemCodeSize) val itemCode: String) {
+    companion object {
+        const val ItemCodeSize = 4
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
 inline fun <reified T : Any> serde(input: T): T {
     val serialized = VB6Binary.encodeToByteArray(input)
+    println("Serialized \n\t$input\nas\n\t${serialized.contentToString()}")
     return VB6Binary.decodeFromByteArray<T>(serialized)
 }
+
+@Serializable
+data class HasName(@Size(10) val name: String)
+
+@Serializable
+data class HasNameAndAge(@Size(10) val name: String, val age: Int)
+
+@Serializable
+data class HasNameAndNestedObject(@Size(10) val name: String, val info: HasNameAndAge)
+
+@Serializable
+data class HasIntArray(
+    @Size(5)
+    val array: IntArray,
+    val other: Int
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as HasIntArray
+
+        if (!array.contentEquals(other.array)) return false
+        return this.other == other.other
+    }
+
+    override fun hashCode(): Int {
+        var result = array.contentHashCode()
+        result = 31 * result + other
+        return result
+    }
+}
+
+@Serializable
+data class HasShortArray(
+    @Size(5)
+    val array: ShortArray,
+    @Size(6)
+    val other: String
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as HasShortArray
+
+        if (!array.contentEquals(other.array)) return false
+        return this.other == other.other
+    }
+
+    override fun hashCode(): Int {
+        var result = array.contentHashCode()
+        result = 31 * result + other.hashCode()
+        return result
+    }
+}
+
+@Serializable
+data class HasListOfBytes(
+    @Size(6)
+    val items: List<Byte>,
+)
+
+
+@Serializable
+data class HasListOfIntArrays(
+    @Size(HasListOfIntArraysItemSize)
+    val items: List<@Serializable(with = IntArrayWith3ElementsSerializer::class) IntArray>,
+) {
+    companion object {
+        const val HasListOfIntArraysItemSize = 2
+    }
+
+    override fun toString(): String {
+        return "HasListOfIntArrays(items=${items.map { it.contentToString() }})"
+    }
+
+
+}
+
+
+@Serializable
+data class HasListOfHasItemCode(
+    @Size(ItemsSize)
+    val items: List<HasItemCode>,
+) {
+    companion object {
+        const val ItemsSize = 3
+    }
+}
+
+object IntArrayWith3ElementsSerializer : ConstByteSizeCollectionKSerializer<IntArray>(
+    IntArraySerializer(),
+    elementByteSize = Int.SIZE_BYTES,
+    collectionMaxSize = 3
+)
 
