@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.5.0")
+    api("org.jetbrains.kotlinx:kotlinx-serialization-core:1.5.0")
 
     // TODO: figure out if we can get rid of this
     implementation("org.jetbrains.kotlin:kotlin-reflect:1.8.21")
