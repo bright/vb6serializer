@@ -1,9 +1,6 @@
 package dev.bright.vb6serializer
 
-import kotlinx.serialization.BinaryFormat
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.*
 import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import java.io.ByteArrayInputStream
@@ -12,7 +9,9 @@ import java.nio.charset.Charset
 
 @ExperimentalSerializationApi
 sealed class VB6Binary(override val serializersModule: SerializersModule) : BinaryFormat {
-    companion object Default : VB6Binary(EmptySerializersModule())
+    companion object Default : VB6Binary(EmptySerializersModule()) {
+        fun <T> byteSizeOf(serializer: KSerializer<T>, instance: T) = encodeToByteArray(serializer, instance).size
+    }
 
     override fun <T> decodeFromByteArray(deserializer: DeserializationStrategy<T>, bytes: ByteArray): T {
         val inputStream = ByteArrayInputStream(bytes)

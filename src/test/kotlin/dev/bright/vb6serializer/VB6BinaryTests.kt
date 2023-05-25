@@ -111,6 +111,23 @@ class VB6BinaryTests {
         // @Size(2) String "" --serialise--> [0,0] --deserialize--> (String) null
     }
 
+
+    @Test
+    fun `can serialize empty object with list of strings`() {
+        // given
+        val input = HasListOfStrings(emptyList())
+
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(HasListOfStrings(listOf("", "", "", "", "", "")))
+        // NOTE: should this be the case?
+        // We could technically transform [0,0] --deserialize--> (String) null
+        // However, that would mean that the following is true
+        // @Size(2) String "" --serialise--> [0,0] --deserialize--> (String) null
+    }
+
     @Test
     fun `can serialize int array inside array with list of strings`() {
         // given

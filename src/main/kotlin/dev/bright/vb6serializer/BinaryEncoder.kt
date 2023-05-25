@@ -3,6 +3,7 @@ package dev.bright.vb6serializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.CompositeEncoder
@@ -11,7 +12,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.internal.AbstractCollectionSerializer
 import kotlinx.serialization.modules.SerializersModule
 
-@OptIn(ExperimentalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)
 internal class BinaryEncoder(override val output: Output, override val serializersModule: SerializersModule) :
     Encoder, CompositeEncoder, HasOutput {
     override fun beginStructure(descriptor: SerialDescriptor): CompositeEncoder {
@@ -169,13 +170,23 @@ internal class BinaryEncoder(override val output: Output, override val serialize
                 )
             }
 
-            val constSizeSerializer = ConstByteSizeCollectionSerializationStrategy(
-                serializer as SerializationStrategy<T>,
-                maxSize,
-                actualSize
-            )
+            if (actualSize == 0) {
+                fillZeroBytesSerializer(
+                    descriptor,
+                    index,
+                    serializer,
+                    maxSize,
+                    descriptor.getElementDescriptor(index).getElementDescriptor(0)
+                )
+            } else {
+                val constSizeSerializer = ConstByteSizeCollectionSerializationStrategy(
+                    serializer as SerializationStrategy<T>,
+                    maxSize,
+                    actualSize
+                )
 
-            constSizeSerializer
+                constSizeSerializer
+            }
         } else serializer
 
         if (actualSerializer !is ConstByteSizeSerializationStrategy<T>) {
@@ -185,12 +196,74 @@ internal class BinaryEncoder(override val output: Output, override val serialize
         encodeSerializableValue(actualSerializer, value)
     }
 
+    private fun <T> fillZeroBytesSerializer(
+        descriptor: SerialDescriptor,
+        index: Int,
+        serializer: AbstractCollectionSerializer<T, *, *>,
+        maxSize: Int,
+        itemDescriptor: SerialDescriptor
+    ): FillZeroBytesSerializer<T> {
+        val itemByteSize = when (val serialKind = itemDescriptor.kind) {
+            is PrimitiveKind -> when (serialKind) {
+                PrimitiveKind.BOOLEAN -> Byte.SIZE_BYTES
+                PrimitiveKind.BYTE -> Byte.SIZE_BYTES
+                PrimitiveKind.CHAR -> Char.SIZE_BYTES
+                PrimitiveKind.DOUBLE -> Double.SIZE_BYTES
+                PrimitiveKind.FLOAT -> Float.SIZE_BYTES
+                PrimitiveKind.INT -> Int.SIZE_BYTES
+                PrimitiveKind.LONG -> Long.SIZE_BYTES
+                PrimitiveKind.SHORT -> Short.SIZE_BYTES
+                PrimitiveKind.STRING -> {
+                    (serializer.elementSerializer() as? ConstByteSizeSerializationStrategy)?.totalByteSize
+                }
+            }
+
+            else -> (serializer.elementSerializer() as? ConstByteSizeSerializationStrategy)?.totalByteSize
+        }
+
+        return if (itemByteSize != null) {
+            val totalCollectionSize = itemByteSize * maxSize
+            FillZeroBytesSerializer(serializer.descriptor, totalCollectionSize)
+        } else {
+            throw IllegalArgumentException(
+                "Empty collection provided ${
+                    descriptor.getElementName(
+                        index
+                    )
+                } in $descriptor. Cannot deduce element size without reflection! Provide at least one element or a dedicated serializer e.g. ConstByteSizeCollectionKSerializer"
+            )
+        }
+    }
+
     @OptIn(InternalSerializationApi::class)
     private fun <T> AbstractCollectionSerializer<T, *, *>.collectionSize(
         value: T
     ): Int {
         return javaClass.getMethod("collectionSize", Any::class.java).invoke(this, value) as Int
     }
+
+    @OptIn(InternalSerializationApi::class)
+    private fun <T> AbstractCollectionSerializer<T, *, *>.elementSerializer(
+    ): SerializationStrategy<*> {
+        return CollectionLikeSerializer.elementSerializer(this)
+    }
+}
+
+internal class FillZeroBytesSerializer<T>(override val descriptor: SerialDescriptor, override val totalByteSize: Int) :
+    ConstByteSizeSerializationStrategy<T> {
+    override fun serialize(encoder: Encoder, value: T) {
+        repeat(totalByteSize) { encoder.encodeByte(0) }
+    }
+}
+
+@OptIn(InternalSerializationApi::class)
+object CollectionLikeSerializer {
+    private val elementSerializer =
+        javaClass.classLoader.loadClass("kotlinx.serialization.internal.CollectionLikeSerializer")
+            .getDeclaredField("elementSerializer").apply { isAccessible = true }
+
+    fun <T> elementSerializer(serializer: AbstractCollectionSerializer<T, *, *>): SerializationStrategy<*> =
+        elementSerializer.get(serializer) as SerializationStrategy<*>
 }
 
 
