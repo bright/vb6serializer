@@ -6,8 +6,8 @@ import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.modules.SerializersModule
 
 internal class HasConstStructureDecoder(
-    input: Input, private val structureDecoder: CompositeDecoder
-) : BinaryDecoder(input, structureDecoder.serializersModule) {
+    input: Input, configuration: VB6BinaryConfiguration, private val structureDecoder: CompositeDecoder
+) : BinaryDecoder(input, configuration, structureDecoder.serializersModule) {
     override fun beginStructure(descriptor: SerialDescriptor): CompositeDecoder {
         return structureDecoder
     }
@@ -16,8 +16,9 @@ internal class HasConstStructureDecoder(
 internal open class ConstSizeCollectionDecoder(
     private val collectionSize: Int,
     input: Input,
+    configuration: VB6BinaryConfiguration,
     serializersModule: SerializersModule,
-) : BinaryDecoder(input, serializersModule) {
+) : BinaryDecoder(input, configuration, serializersModule) {
 
     override fun decodeCollectionSize(descriptor: SerialDescriptor): Int = collectionSize
 

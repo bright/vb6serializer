@@ -13,7 +13,11 @@ import kotlinx.serialization.internal.AbstractCollectionSerializer
 import kotlinx.serialization.modules.SerializersModule
 
 @OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)
-internal class BinaryEncoder(override val output: Output, override val serializersModule: SerializersModule) :
+internal class BinaryEncoder(
+    override val output: Output,
+    override val serializersModule: SerializersModule,
+    private val configuration: VB6BinaryConfiguration
+) :
     Encoder, CompositeEncoder, HasOutput {
     override fun beginStructure(descriptor: SerialDescriptor): CompositeEncoder {
         return this
@@ -126,11 +130,20 @@ internal class BinaryEncoder(override val output: Output, override val serialize
     }
 
     private fun encodeString(value: String, maxLength: Int) {
-        val bytes = value.toByteArray(serializingCharset)
-        output.write(bytes)
-        val paddingLength = maxOf(maxLength - bytes.size, 0)
-        if (paddingLength > 0) {
-            output.write(ByteArray(paddingLength))
+        if (value.isNotEmpty()) {
+            val bytes = value.toByteArray(defaultSerializingCharset)
+
+            output.write(bytes)
+
+            val paddingChar = configuration.stringPaddingCharacterByte.toInt()
+            repeat(maxLength - bytes.size) {
+                output.writeByte(paddingChar)
+            }
+        } else {
+            val paddingChar = configuration.emptyStringsPaddingCharacterByte.toInt()
+            repeat(maxLength) {
+                output.writeByte(paddingChar)
+            }
         }
     }
 

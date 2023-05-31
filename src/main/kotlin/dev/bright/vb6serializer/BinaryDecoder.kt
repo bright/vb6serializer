@@ -11,7 +11,11 @@ import java.io.ByteArrayOutputStream
 import java.io.EOFException
 
 @OptIn(ExperimentalSerializationApi::class)
-internal open class BinaryDecoder(override val input: Input, override val serializersModule: SerializersModule) :
+internal open class BinaryDecoder(
+    override val input: Input,
+    internal val configuration: VB6BinaryConfiguration,
+    override val serializersModule: SerializersModule
+) :
     Decoder, CompositeDecoder, HasInput {
     private var currentElementIndex = 0
     override fun decodeBooleanElement(descriptor: SerialDescriptor, index: Int): Boolean {
@@ -134,12 +138,12 @@ internal open class BinaryDecoder(override val input: Input, override val serial
         val contents = byteStream.toByteArray()
 
         return String(
-            contents, 0, contents.size, serializingCharset
+            contents, 0, contents.size, defaultSerializingCharset
         )
     }
 
     override fun beginStructure(descriptor: SerialDescriptor): CompositeDecoder {
-        return BinaryDecoder(input, serializersModule)
+        return BinaryDecoder(input, configuration, serializersModule)
     }
 
     override fun decodeStringElement(descriptor: SerialDescriptor, index: Int): String {
@@ -157,7 +161,7 @@ internal open class BinaryDecoder(override val input: Input, override val serial
             nonPaddedLength
         }
         return String(
-            contents, 0, actualLength, serializingCharset
+            contents, 0, actualLength, defaultSerializingCharset
         )
     }
 
@@ -178,9 +182,11 @@ internal open class BinaryDecoder(override val input: Input, override val serial
         } else {
             val collectionSize = descriptor.requireSizeOnElement(index)
 
+            val constSizeCollectionDecoder =
+                ConstSizeCollectionDecoder(collectionSize.length, input, configuration, serializersModule)
             deserializer.deserialize(
                 HasConstStructureDecoder(
-                    input, ConstSizeCollectionDecoder(collectionSize.length, input, serializersModule)
+                    input, configuration, constSizeCollectionDecoder
                 )
             )
         }

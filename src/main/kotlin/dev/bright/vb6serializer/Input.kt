@@ -7,7 +7,7 @@ import java.io.InputStream
 import java.io.OutputStream
 
 internal class Input private constructor(
-    private val stream: ByteCountingInputStream, private val dataInput: DataInputStream = DataInputStream(stream)
+    private val stream: ByteCountingInputStream, private val dataInput: DataInput = LittleEndianDataInputStream(DataInputStream(stream))
 ) : DataInput by dataInput {
     inline fun <T> skipBytesUpToAfterReading(expectedBytesToRead: Int, reader: () -> T): T {
         val beforeRead = stream.bytesRead

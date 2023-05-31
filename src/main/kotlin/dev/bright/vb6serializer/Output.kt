@@ -5,7 +5,7 @@ import java.io.DataOutputStream
 import java.io.OutputStream
 
 internal class Output private constructor(
-    private val stream: ByteCountingOutputStream, private val dataOutput: DataOutputStream = DataOutputStream(stream)
+    private val stream: ByteCountingOutputStream, private val dataOutput: DataOutput = LittleEndianDataOutputStream(DataOutputStream(stream))
 ) : DataOutput by dataOutput {
     inline fun addPaddingWithRatio(actualSizeNominator: Int, expectedSizeDenominator: Int, bytesWriter: () -> Unit) {
         val beforeCount = stream.bytesWritten

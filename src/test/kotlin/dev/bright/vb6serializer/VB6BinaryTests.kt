@@ -31,7 +31,7 @@ class VB6BinaryTests {
         val output = serde(input)
 
         // then
-        output.shouldBe(input)
+        output.shouldBe(HasName("Ala".padEnd(10)))
     }
 
     @Test
@@ -43,7 +43,7 @@ class VB6BinaryTests {
         val output = serde(input)
 
         // then
-        output.shouldBe(input)
+        output.shouldBe(HasNameAndAge("Ala".padEnd(10), 12))
     }
 
     @Test
@@ -55,7 +55,7 @@ class VB6BinaryTests {
         val output = serde(input)
 
         // then
-        output.shouldBe(input)
+        output.shouldBe(HasNameAndNestedObject("Ala".padEnd(10), HasNameAndAge("Ala".padEnd(10), 12)))
     }
 
 
@@ -161,8 +161,8 @@ class VB6BinaryTests {
 
         // then
         output.items.shouldHaveSize(HasListOfHasItemCode.ItemsSize)
-        output.items[0].itemCode.shouldBe("P1")
-        output.items[1].itemCode.shouldBe("P23")
+        output.items[0].itemCode.shouldBe("P1".padEnd(HasItemCode.ItemCodeSize))
+        output.items[1].itemCode.shouldBe("P23".padEnd(HasItemCode.ItemCodeSize))
         output.items[2].itemCode.shouldBe("")
     }
 

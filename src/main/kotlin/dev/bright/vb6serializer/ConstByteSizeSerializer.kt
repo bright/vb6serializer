@@ -73,7 +73,7 @@ open class ConstByteSizeCollectionKSerializer<T>(
         val binaryDecoder = decoder.requireBinaryDecoderBase()
         return binaryDecoder.input.skipBytesUpToAfterReading(totalByteSize) {
             val limitedInput = binaryDecoder.input.withBytesLimitedTo(totalByteSize)
-            inner.deserialize(BinaryDecoder(limitedInput, binaryDecoder.serializersModule))
+            inner.deserialize(BinaryDecoder(limitedInput, binaryDecoder.configuration, binaryDecoder.serializersModule))
         }
     }
 }
