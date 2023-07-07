@@ -35,6 +35,52 @@ class VB6BinaryTests {
     }
 
     @Test
+    fun `can serialize object with variable size name`() {
+        // given
+        val input = HasVariableSizeName("Ala")
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(input)
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `should serialize variable size string with a short in front that indicates its length`() {
+        // given
+        val input = HasVariableSizeName("abc")
+        // when
+        val output = VB6Binary.encodeToByteArray(input)
+
+        // then
+        output shouldBe byteArrayOf(0x03, 0x00, 0x61, 0x62, 0x63)
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    @Test
+    fun `should serialize variable size string with only a short 00 if it's empty`() {
+        // given
+        val input = HasVariableSizeName("")
+        // when
+        val output = VB6Binary.encodeToByteArray(input)
+
+        // then
+        output.shouldBe(byteArrayOf(0x00, 0x00))
+    }
+
+    @Test
+    fun `can serialize object with empty name`() {
+        // given
+        val input = HasVariableSizeName("")
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(input)
+    }
+
+    @Test
     fun `can serialize object with name and age`() {
         // given
         val input = HasNameAndAge("Ala", 12)
@@ -44,6 +90,18 @@ class VB6BinaryTests {
 
         // then
         output.shouldBe(HasNameAndAge("Ala".padEnd(10), 12))
+    }
+
+    @Test
+    fun `can serialize object with variable size name and age`() {
+        // given
+        val input = HasVariableSizeNameAndAge("Ala", 12)
+
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(input)
     }
 
     @Test
@@ -58,6 +116,29 @@ class VB6BinaryTests {
         output.shouldBe(HasNameAndNestedObject("Ala".padEnd(10), HasNameAndAge("Ala".padEnd(10), 12)))
     }
 
+    @Test
+    fun `can serialize object with variable size name and nested object`() {
+        // given
+        val input = HasVariableSizeNameAndNestedObject("Ala", HasVariableSizeNameAndAge("Ala", 12))
+
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(input)
+    }
+
+    @Test
+    fun `can serialize object with empty name and nested object`() {
+        // given
+        val input = HasVariableSizeNameAndNestedObject("", HasVariableSizeNameAndAge("Ala", 12))
+
+        // when
+        val output = serde(input)
+
+        // then
+        output.shouldBe(input)
+    }
 
     @Test
     fun `can serialize object with int array`() {
@@ -110,7 +191,6 @@ class VB6BinaryTests {
         // However, that would mean that the following is true
         // @Size(2) String "" --serialise--> [0,0] --deserialize--> (String) null
     }
-
 
     @Test
     fun `can serialize empty object with list of strings`() {
@@ -191,6 +271,15 @@ data class HasNameAndAge(@Size(10) val name: String, val age: Int)
 
 @Serializable
 data class HasNameAndNestedObject(@Size(10) val name: String, val info: HasNameAndAge)
+
+@Serializable
+data class HasVariableSizeName(val name: String)
+
+@Serializable
+data class HasVariableSizeNameAndAge(val name: String, val age: Int)
+
+@Serializable
+data class HasVariableSizeNameAndNestedObject(val name: String, val info: HasVariableSizeNameAndAge)
 
 @Serializable
 data class HasIntArray(

@@ -147,8 +147,8 @@ internal open class BinaryDecoder(
     }
 
     override fun decodeStringElement(descriptor: SerialDescriptor, index: Int): String {
-        val length = descriptor.requireSizeOnElement(index)
-        return decodeStringWithLength(length.length)
+        val length = descriptor.findSizeOnElement(index)?.length
+        return length?.let { decodeStringWithLength(it) } ?: decodeStringWithoutLength()
     }
 
     internal fun decodeStringWithLength(byteLength: Int): String {
@@ -162,6 +162,15 @@ internal open class BinaryDecoder(
         }
         return String(
             contents, 0, actualLength, defaultSerializingCharset
+        )
+    }
+
+    private fun decodeStringWithoutLength(): String {
+        val stringSize = input.readShort().toInt()
+        val contents = ByteArray(stringSize)
+        input.readFully(contents)
+        return String(
+            contents, 0, stringSize, defaultSerializingCharset
         )
     }
 
