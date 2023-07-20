@@ -138,7 +138,7 @@ internal open class BinaryDecoder(
         val contents = byteStream.toByteArray()
 
         return String(
-            contents, 0, contents.size, defaultSerializingCharset
+            contents, 0, contents.size, configuration.encoding
         )
     }
 
@@ -161,7 +161,7 @@ internal open class BinaryDecoder(
             nonPaddedLength
         }
         return String(
-            contents, 0, actualLength, defaultSerializingCharset
+            contents, 0, actualLength, configuration.encoding
         )
     }
 
@@ -170,7 +170,7 @@ internal open class BinaryDecoder(
         val contents = ByteArray(stringSize)
         input.readFully(contents)
         return String(
-            contents, 0, stringSize, defaultSerializingCharset
+            contents, 0, stringSize, configuration.encoding
         )
     }
 

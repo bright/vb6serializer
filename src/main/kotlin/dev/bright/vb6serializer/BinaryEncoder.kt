@@ -144,7 +144,7 @@ internal class BinaryEncoder(
 
     private fun encodeStringWithFixedByteSize(value: String, maxLength: Int) {
         if (value.isNotEmpty()) {
-            val bytes = value.toByteArray(defaultSerializingCharset)
+            val bytes = value.toByteArray(configuration.encoding)
 
             output.write(bytes)
 
@@ -162,7 +162,7 @@ internal class BinaryEncoder(
 
     private fun encodeStringWithVariableLength(value: String) {
         output.writeShort(value.length)
-        output.write(value.toByteArray(defaultSerializingCharset))
+        output.write(value.toByteArray(configuration.encoding))
     }
 
     override fun endStructure(descriptor: SerialDescriptor) {
