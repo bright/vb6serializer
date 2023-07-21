@@ -69,7 +69,7 @@ internal class BinaryEncoder(
     }
 
     override fun encodeString(value: String) {
-        encodeStringWithLength(value, value.length)
+        encodeStringVariableLength(value)
     }
 
     override fun encodeBooleanElement(descriptor: SerialDescriptor, index: Int, value: Boolean) {
@@ -119,9 +119,9 @@ internal class BinaryEncoder(
         val maxLength = descriptor.findSizeOnElement(index)?.length
         if (maxLength != null) {
             checkLengthMaxValue(value, maxLength, descriptor, index)
-            encodeStringWithLength(value, maxLength)
+            encodeStringWithFixedByteSize(value, maxLength)
         } else {
-            encodeStringWithoutLength(value)
+            encodeStringVariableLength(value)
         }
     }
 
@@ -142,7 +142,7 @@ internal class BinaryEncoder(
         }
     }
 
-    private fun encodeStringWithLength(value: String, maxLength: Int) {
+    private fun encodeStringWithFixedByteSize(value: String, maxLength: Int) {
         if (value.isNotEmpty()) {
             val bytes = value.toByteArray(defaultSerializingCharset)
 
@@ -160,7 +160,7 @@ internal class BinaryEncoder(
         }
     }
 
-    private fun encodeStringWithoutLength(value: String) {
+    private fun encodeStringVariableLength(value: String) {
         output.writeShort(value.length)
         output.write(value.toByteArray(defaultSerializingCharset))
     }
