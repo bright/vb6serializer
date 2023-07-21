@@ -69,7 +69,7 @@ internal class BinaryEncoder(
     }
 
     override fun encodeString(value: String) {
-        encodeStringVariableLength(value)
+        encodeStringWithFixedByteSize(value, value.length)
     }
 
     override fun encodeBooleanElement(descriptor: SerialDescriptor, index: Int, value: Boolean) {
