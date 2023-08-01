@@ -16,14 +16,16 @@ data class VB6BinaryConfiguration(
     // However, our Kotlin code isn't prepared for `String?`
     // when reading `00000` as `String` of length 5 we end up having `""`
     // If we'll support `String?` we could very well treat zeros as `null`
-    val emptyStringsPaddingCharacter: Char = 0.toChar()
+    val emptyStringsPaddingCharacter: Char = 0.toChar(),
+    val sizeResolver: DynamicSizeResolver = DynamicSizeResolver.Null
 ) {
+
     val stringPaddingCharacterByte get() = stringPaddingCharacter.code.toByte()
     val emptyStringsPaddingCharacterByte get() = emptyStringsPaddingCharacter.code.toByte()
 }
 
 @ExperimentalSerializationApi
-sealed class VB6Binary(override val serializersModule: SerializersModule, private val configuration: VB6BinaryConfiguration) : BinaryFormat {
+open class VB6Binary(override val serializersModule: SerializersModule, private val configuration: VB6BinaryConfiguration) : BinaryFormat {
     companion object Default : VB6Binary(EmptySerializersModule(), VB6BinaryConfiguration()) {
         fun <T> byteSizeOf(serializer: KSerializer<T>, instance: T) = encodeToByteArray(serializer, instance).size
     }

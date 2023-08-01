@@ -6,9 +6,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.IntArraySerializer
 import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.modules.EmptySerializersModule
 import org.junit.jupiter.api.Test
 
+@ExperimentalSerializationApi
 class VB6BinaryTests {
 
     @Test
@@ -152,6 +155,34 @@ class VB6BinaryTests {
         output.shouldBe(HasIntArray(intArrayOf(1, 2, 3, 4, 0 /* padded because of length */), 42))
     }
 
+
+    @Test
+    fun `can serialize object with dynamically sized int array`() {
+        // given
+        val input = HasIntArray(intArrayOf(1, 2, 3, 4), 42)
+        val vb6binary =
+            VB6Binary(
+                serializersModule = EmptySerializersModule(),
+                configuration = VB6BinaryConfiguration(sizeResolver = object : DynamicSizeResolver {
+                    override fun sizeFor(descriptor: SerialDescriptor, index: Int): Size? {
+                        return when {
+                            descriptor.serialName == HasIntArray::class.qualifiedName && descriptor.getElementName(index) == "array" -> Size(
+                                4
+                            )
+
+                            else -> null
+                        }
+                    }
+                })
+            )
+
+        // when
+        val output = vb6binary.serde(input)
+
+        // then
+        output.shouldBe(HasIntArray(intArrayOf(1, 2, 3, 4), 42))
+    }
+
     @Test
     fun `can serialize object with short array`() {
         // given
@@ -258,9 +289,14 @@ data class HasItemCode(@Size(ItemCodeSize) val itemCode: String) {
 
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified T : Any> serde(input: T): T {
-    val serialized = VB6Binary.encodeToByteArray(input)
+    return VB6Binary.serde(input)
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+inline fun <reified T : Any> VB6Binary.serde(input: T): T {
+    val serialized = this.encodeToByteArray(input)
     println("Serialized \n\t$input\nas\n\t${serialized.contentToString()}")
-    return VB6Binary.decodeFromByteArray<T>(serialized)
+    return this.decodeFromByteArray<T>(serialized)
 }
 
 @Serializable

@@ -116,7 +116,8 @@ internal class BinaryEncoder(
     }
 
     override fun encodeStringElement(descriptor: SerialDescriptor, index: Int, value: String) {
-        val maxLength = descriptor.findSizeOnElement(index)?.length
+        val maxLength = configuration.sizeResolver.sizeFor(descriptor, index)?.length
+            ?: descriptor.findSizeOnElement(index)?.length
         if (maxLength != null) {
             checkLengthMaxValue(value, maxLength, descriptor, index)
             encodeStringWithFixedByteSize(value, maxLength)
@@ -182,7 +183,7 @@ internal class BinaryEncoder(
     private fun <T> encodeSerializableList(
         descriptor: SerialDescriptor, index: Int, serializer: SerializationStrategy<T>, value: T
     ) {
-        val size = descriptor.findSizeOnElement(index)
+        val size = configuration.sizeResolver.sizeFor(descriptor, index) ?: descriptor.findSizeOnElement(index)
         val actualSerializer = if (size != null) {
             val maxSize = size.length
 
