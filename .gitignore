@@ -15,6 +15,7 @@ build/
 .idea/misc.xml
 .idea/vcs.xml
 .idea/gradle.xml
+.idea/GitLink.xml
 *.iws
 *.iml
 *.ipr

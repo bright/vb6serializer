@@ -36,7 +36,7 @@ open class ConstByteSizeStringSerializer(
     override fun deserialize(decoder: Decoder): String {
         val binaryDecoder = decoder.requireBinaryDecoderBase()
         return binaryDecoder.input.skipBytesUpToAfterReading(byteSize) {
-            binaryDecoder.decodeStringWithLength(byteSize)
+            binaryDecoder.decodeStringWithFixedByteSize(byteSize)
         }
     }
 
