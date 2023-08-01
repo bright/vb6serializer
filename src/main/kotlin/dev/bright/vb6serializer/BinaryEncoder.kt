@@ -121,7 +121,7 @@ internal class BinaryEncoder(
             checkLengthMaxValue(value, maxLength, descriptor, index)
             encodeStringWithFixedByteSize(value, maxLength)
         } else {
-            encodeStringVariableLength(value)
+            encodeStringWithVariableLength(value)
         }
     }
 
@@ -160,7 +160,7 @@ internal class BinaryEncoder(
         }
     }
 
-    private fun encodeStringVariableLength(value: String) {
+    private fun encodeStringWithVariableLength(value: String) {
         output.writeShort(value.length)
         output.write(value.toByteArray(defaultSerializingCharset))
     }
