@@ -189,7 +189,8 @@ internal open class BinaryDecoder(
         return if (deserializer is ConstByteSizeDeserializationStrategy<T>) {
             decodeSerializableValue(deserializer)
         } else {
-            val collectionSize = descriptor.requireSizeOnElement(index)
+            val collectionSize =
+                configuration.sizeResolver.sizeFor(descriptor, index) ?: descriptor.requireSizeOnElement(index)
 
             val constSizeCollectionDecoder =
                 ConstSizeCollectionDecoder(collectionSize.length, input, configuration, serializersModule)
