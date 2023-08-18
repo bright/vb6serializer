@@ -192,14 +192,12 @@ internal class BinaryEncoder(
 
             val actualSize = abstractCollectionSerializer.collectionSize(value)
 
-            if (actualSize > maxSize) {
-                throw IllegalArgumentException(
-                    "Collection size $actualSize is bigger than $maxSize declared on ${
-                        descriptor.getElementName(
-                            index
-                        )
-                    } in $descriptor"
-                )
+            require(actualSize > maxSize) {
+                "Collection size $actualSize is bigger than $maxSize declared on ${
+                    descriptor.getElementName(
+                        index
+                    )
+                } in $descriptor"
             }
 
             if (actualSize == 0) {
