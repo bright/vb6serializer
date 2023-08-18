@@ -132,14 +132,12 @@ internal class BinaryEncoder(
         descriptor: SerialDescriptor,
         index: Int
     ) {
-        if (value.length > maxLength) {
-            throw IllegalArgumentException(
-                "Value $value exceeds max length $maxLength for ${descriptor.getElementName(index)}: ${
-                    descriptor.getElementDescriptor(
-                        index
-                    )
-                }"
-            )
+        require(value.length <= maxLength) {
+            "Value $value exceeds max length $maxLength for ${descriptor.getElementName(index)}: ${
+                descriptor.getElementDescriptor(
+                    index
+                )
+            }"
         }
     }
 
@@ -192,7 +190,7 @@ internal class BinaryEncoder(
 
             val actualSize = abstractCollectionSerializer.collectionSize(value)
 
-            require(actualSize > maxSize) {
+            require(actualSize <= maxSize) {
                 "Collection size $actualSize is bigger than $maxSize declared on ${
                     descriptor.getElementName(
                         index
@@ -219,8 +217,8 @@ internal class BinaryEncoder(
             }
         } else serializer
 
-        if (actualSerializer !is ConstByteSizeSerializationStrategy<T>) {
-            throw IllegalArgumentException("An instance of ${ConstByteSizeSerializationStrategy::class} is supported got $actualSerializer")
+        require(actualSerializer is ConstByteSizeSerializationStrategy<T>) {
+            "An instance of ${ConstByteSizeSerializationStrategy::class} is supported got $actualSerializer"
         }
 
         encodeSerializableValue(actualSerializer, value)
