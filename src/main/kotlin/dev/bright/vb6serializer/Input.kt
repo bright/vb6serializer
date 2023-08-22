@@ -35,6 +35,10 @@ internal class Input private constructor(
     // TODO: that's not accurate
     val isComplete: Boolean get() = stream.available() <= 0
 
+    fun readAllBytes(): ByteArray {
+        return stream.readAllBytes()
+    }
+
     companion object {
         fun create(stream: InputStream) = Input(ByteCountingInputStream(stream))
     }
