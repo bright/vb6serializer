@@ -11,7 +11,7 @@ internal fun transposeInPlace(serialized: ByteArray, rows: Int, cols: Int, eleme
             serialized[jByteSizeIndex + x] = temp
         }
     }
-    // https://stackoverflow.com/questions/9227747/in-place-transposition-of-a-matrix
+    // https://stackoverflow.com/a/9320349
     val lastIndex = rows * cols - 1
     val visited = BooleanArray(rows * cols)
 
