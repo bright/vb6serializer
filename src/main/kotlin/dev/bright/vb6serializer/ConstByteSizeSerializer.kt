@@ -1,12 +1,14 @@
+@file:OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)
+
 package dev.bright.vb6serializer
 
-import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.*
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.internal.AbstractCollectionSerializer
 
 internal open class ConstByteSizeCollectionSerializationStrategy<T>(
     private val inner: SerializationStrategy<T>,
@@ -19,9 +21,21 @@ internal open class ConstByteSizeCollectionSerializationStrategy<T>(
     override val descriptor: SerialDescriptor = inner.descriptor
 
     override fun serialize(encoder: Encoder, value: T) {
-        val binaryEncoder = encoder.requireHasOutputEncoder()
+        val binaryEncoder = encoder.requireBinaryEncoder()
         binaryEncoder.output.addPaddingWithRatio(collectionActualSize, collectionMaxSize) {
-            inner.serialize(encoder, value)
+            val elementDescriptor = inner.descriptor.getElementDescriptor(0)
+            if (elementDescriptor.kind == StructureKind.LIST) {
+                val serialized =
+                    serializedBytesOf(binaryEncoder.serializersModule, binaryEncoder.configuration, inner, value)
+                @Suppress("UNCHECKED_CAST") val actualSerializer = inner as AbstractCollectionSerializer<T, *, *>
+                val elementSerializer = actualSerializer.elementSerializer() as ConstByteSizeCollectionKSerializer<*>
+                val rows = collectionActualSize
+                val cols = elementSerializer.collectionMaxSize
+                transposeInPlace(serialized, rows, cols, elementSerializer.elementByteSize)
+                binaryEncoder.output.write(serialized)
+            } else {
+                inner.serialize(encoder, value)
+            }
         }
     }
 }
@@ -52,15 +66,23 @@ internal interface ConstByteSizeSerializationStrategy<T> : SerializationStrategy
     val totalByteSize: Int
 }
 
-internal interface ConstByteSizeDeserializationStrategy<T> : DeserializationStrategy<T>
-internal interface ConstByteSizeKSerializer<T> : KSerializer<T>, ConstByteSizeSerializationStrategy<T>,
+internal interface ConstByteSizeDeserializationStrategy<T> : DeserializationStrategy<T> {
+    val totalByteSize: Int
+}
+
+internal interface ConstByteSizeCollectionDeserializationStrategy<T> : ConstByteSizeDeserializationStrategy<T> {
+    val elementByteSize: Int
+    val collectionMaxSize: Int
+}
+internal interface ConstByteSizeKSerializer<T> : KSerializer<T>,
+    ConstByteSizeSerializationStrategy<T>,
     ConstByteSizeDeserializationStrategy<T>
 
 open class ConstByteSizeCollectionKSerializer<T>(
-    private val inner: KSerializer<T>, private val elementByteSize: Int, private val collectionMaxSize: Int
-) : KSerializer<T>, ConstByteSizeKSerializer<T> {
+    private val inner: KSerializer<T>, override val elementByteSize: Int, override val collectionMaxSize: Int
+) : KSerializer<T>, ConstByteSizeKSerializer<T>, ConstByteSizeCollectionDeserializationStrategy<T> {
     override val totalByteSize get() = elementByteSize * collectionMaxSize
-    override val descriptor: SerialDescriptor = inner.descriptor
+    override val descriptor: SerialDescriptor get() = inner.descriptor
 
     override fun serialize(encoder: Encoder, value: T) {
         val binaryEncoder = encoder.requireHasOutputEncoder()

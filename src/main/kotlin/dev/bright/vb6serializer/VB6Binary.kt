@@ -38,11 +38,20 @@ open class VB6Binary(override val serializersModule: SerializersModule, private 
     }
 
     override fun <T> encodeToByteArray(serializer: SerializationStrategy<T>, value: T): ByteArray {
-        val outputStream = ByteArrayOutputStream()
-        val dumper = BinaryEncoder(Output.create(outputStream), serializersModule, configuration)
-        dumper.encodeSerializableValue(serializer, value)
-        return outputStream.toByteArray()
+        return serializedBytesOf(serializersModule, configuration, serializer, value)
     }
+}
+
+internal fun <T> serializedBytesOf(
+    serializersModule: SerializersModule,
+    configuration: VB6BinaryConfiguration,
+    serializer: SerializationStrategy<T>,
+    value: T
+): ByteArray {
+    val outputStream = ByteArrayOutputStream()
+    val dumper = BinaryEncoder(Output.create(outputStream), serializersModule, configuration)
+    dumper.encodeSerializableValue(serializer, value)
+    return outputStream.toByteArray()
 }
 
 internal val defaultSerializingCharset = Charset.forName("ISO-8859-8")

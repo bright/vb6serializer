@@ -16,7 +16,7 @@ import kotlinx.serialization.modules.SerializersModule
 internal class BinaryEncoder(
     override val output: Output,
     override val serializersModule: SerializersModule,
-    private val configuration: VB6BinaryConfiguration
+    internal val configuration: VB6BinaryConfiguration
 ) :
     Encoder, CompositeEncoder, HasOutput {
     override fun beginStructure(descriptor: SerialDescriptor): CompositeEncoder {
@@ -207,6 +207,7 @@ internal class BinaryEncoder(
                     descriptor.getElementDescriptor(index).getElementDescriptor(0)
                 )
             } else {
+
                 val constSizeSerializer = ConstByteSizeCollectionSerializationStrategy(
                     serializer as SerializationStrategy<T>,
                     maxSize,
@@ -270,11 +271,6 @@ internal class BinaryEncoder(
         return javaClass.getMethod("collectionSize", Any::class.java).invoke(this, value) as Int
     }
 
-    @OptIn(InternalSerializationApi::class)
-    private fun <T> AbstractCollectionSerializer<T, *, *>.elementSerializer(
-    ): SerializationStrategy<*> {
-        return CollectionLikeSerializer.elementSerializer(this)
-    }
 }
 
 internal class FillZeroBytesSerializer<T>(override val descriptor: SerialDescriptor, override val totalByteSize: Int) :
@@ -284,20 +280,15 @@ internal class FillZeroBytesSerializer<T>(override val descriptor: SerialDescrip
     }
 }
 
-@OptIn(InternalSerializationApi::class)
-object CollectionLikeSerializer {
-    private val elementSerializer =
-        javaClass.classLoader.loadClass("kotlinx.serialization.internal.CollectionLikeSerializer")
-            .getDeclaredField("elementSerializer").apply { isAccessible = true }
-
-    fun <T> elementSerializer(serializer: AbstractCollectionSerializer<T, *, *>): SerializationStrategy<*> =
-        elementSerializer.get(serializer) as SerializationStrategy<*>
-}
-
 
 internal fun Encoder.requireHasOutputEncoder(): HasOutput {
     return this as? HasOutput
         ?: throw IllegalArgumentException("Only ${HasOutput::class} is supported got $this")
+}
+
+internal fun Encoder.requireBinaryEncoder(): BinaryEncoder {
+    return this as? BinaryEncoder
+        ?: throw IllegalArgumentException("Only ${BinaryEncoder::class} is supported got $this")
 }
 
 internal fun Decoder.requireBinaryDecoderBase(): BinaryDecoder {

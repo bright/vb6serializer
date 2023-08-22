@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.IntArraySerializer
+import kotlinx.serialization.builtins.ShortArraySerializer
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encodeToByteArray
@@ -240,11 +241,51 @@ class VB6BinaryTests {
     }
 
     @Test
-    fun `can serialize int array inside array with list of strings`() {
+    fun `can serialize complete short array inside array`() {
+        // given
+        val input = HasArrayOfShortArrays(
+            arrayOf(
+                ShortArray(5) { (it + 1).toShort() },
+                ShortArray(5) { (it + 1 + 10).toShort() },
+                ShortArray(5) { (it + 1 + 100).toShort() },
+            )
+        )
+
+        // when
+        val output = serde(input)
+
+        // then
+        output.items.shouldHaveSize(HasArrayOfShortArrays.HasArrayOfShortArraysItemSize)
+        output.items[0].shouldBe(input.items[0])
+        output.items[1].shouldBe(input.items[1])
+        output.items[2].shouldBe(input.items[2])
+    }
+
+    @Test
+    fun `can serialize complete short array inside array in vb6 compatible way - column major order`() {
+        // given
+        val input = HasArrayOfShortArrays(
+            arrayOf(
+                ShortArray(5) { (it + 1).toShort() },
+                ShortArray(5) { (it + 1 + 10).toShort() },
+                ShortArray(5) { (it + 1 + 100).toShort() },
+            )
+        )
+
+        // when
+        val output = VB6Binary.encodeToByteArray(input)
+
+        // then
+        output.shouldBe(byteArrayOf(1, 0, 11, 0, 101, 0, 2, 0, 12, 0, 102, 0, 3, 0, 13, 0, 103, 0, 4, 0, 14, 0, 104, 0, 5, 0, 15, 0, 105, 0))
+    }
+
+    @Test
+    fun `can serialize int array inside array with complete list of ints`() {
         // given
         val input = HasListOfIntArrays(
             listOf(
-                IntArray(3) { it + 1 }
+                IntArray(3) { it + 1 },
+                IntArray(3) { it + 1 + 10 }
             )
         )
 
@@ -254,7 +295,7 @@ class VB6BinaryTests {
         // then
         output.items.shouldHaveSize(HasListOfIntArrays.HasListOfIntArraysItemSize)
         output.items[0].shouldBe(input.items[0])
-        output.items[1].shouldBe(IntArray(3) { 0 })
+        output.items[1].shouldBe(input.items[1])
     }
 
     @Test
@@ -383,7 +424,21 @@ data class HasListOfIntArrays(
     override fun toString(): String {
         return "HasListOfIntArrays(items=${items.map { it.contentToString() }})"
     }
+}
 
+
+@Serializable
+data class HasArrayOfShortArrays(
+    @Size(HasArrayOfShortArraysItemSize)
+    val items: Array<@Serializable(with = ShortArrayWith5ElementsSerializer::class) ShortArray>,
+) {
+    companion object {
+        const val HasArrayOfShortArraysItemSize = 3
+    }
+
+    override fun toString(): String {
+        return "HasArrayOfShortArrays(items=${items.map { it.contentToString() }})"
+    }
 
 }
 
@@ -402,5 +457,12 @@ object IntArrayWith3ElementsSerializer : ConstByteSizeCollectionKSerializer<IntA
     IntArraySerializer(),
     elementByteSize = Int.SIZE_BYTES,
     collectionMaxSize = 3
+)
+
+
+object ShortArrayWith5ElementsSerializer : ConstByteSizeCollectionKSerializer<ShortArray>(
+    ShortArraySerializer(),
+    elementByteSize = Short.SIZE_BYTES,
+    collectionMaxSize = 5
 )
 

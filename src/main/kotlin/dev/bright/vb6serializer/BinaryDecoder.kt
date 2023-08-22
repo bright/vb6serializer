@@ -2,11 +2,14 @@ package dev.bright.vb6serializer
 
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.internal.AbstractCollectionSerializer
 import kotlinx.serialization.modules.SerializersModule
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
 
@@ -183,17 +186,46 @@ internal open class BinaryDecoder(
         return decodeSerializableValue(deserializer)
     }
 
+    @OptIn(InternalSerializationApi::class)
     private fun <T> decodeSerializableList(
         descriptor: SerialDescriptor, index: Int, deserializer: DeserializationStrategy<T>
     ): T {
-        return if (deserializer is ConstByteSizeDeserializationStrategy<T>) {
-            decodeSerializableValue(deserializer)
-        } else {
-            val collectionSize =
-                configuration.sizeResolver.sizeFor(descriptor, index) ?: descriptor.requireSizeOnElement(index)
+        val listDescriptor = descriptor.getElementDescriptor(index)
+        val listElementDescriptor = listDescriptor.getElementDescriptor(0)
 
+        val collectionSize = (deserializer as? ConstByteSizeCollectionDeserializationStrategy<*>)?.let { Size(it.collectionMaxSize) }
+            ?: configuration.sizeResolver.sizeFor(descriptor, index)
+            ?: descriptor.requireSizeOnElement(index)
+
+        val decoder = if (listElementDescriptor.kind == StructureKind.LIST) {
+            // nested list, handle VB6 native column-major order
+            val listElementSerializer =
+                CollectionLikeSerializer.elementSerializer(deserializer as AbstractCollectionSerializer<*, *, *>)
+
+            require(listElementSerializer is ConstByteSizeCollectionDeserializationStrategy<*>) {
+                "Required ConstByteSizeCollectionDeserializationStrategy got $listElementSerializer"
+            }
+
+            val nestedElementByteSize = listElementSerializer.elementByteSize
+            val columns = listElementSerializer.collectionMaxSize
+            val nestedListTotalBytes = listElementSerializer.totalByteSize
+
+            val serialized = input.withBytesLimitedTo(collectionSize.length * nestedListTotalBytes)
+                .readAllBytes()
+
+            transposeInPlace(serialized, rows = columns, cols = collectionSize.length, nestedElementByteSize)
+
+            BinaryDecoder(Input.create(ByteArrayInputStream(serialized)), configuration, serializersModule)
+        } else {
+            this
+        }
+
+        return if (deserializer is ConstByteSizeDeserializationStrategy<T>) {
+            deserializer.deserialize(decoder)
+        } else {
             val constSizeCollectionDecoder =
-                ConstSizeCollectionDecoder(collectionSize.length, input, configuration, serializersModule)
+                ConstSizeCollectionDecoder(collectionSize.length, decoder.input, decoder.configuration, decoder.serializersModule)
+
             deserializer.deserialize(
                 HasConstStructureDecoder(
                     input, configuration, constSizeCollectionDecoder
