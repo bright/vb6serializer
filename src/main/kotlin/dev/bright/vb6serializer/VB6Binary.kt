@@ -1,6 +1,9 @@
 package dev.bright.vb6serializer
 
-import kotlinx.serialization.*
+import kotlinx.serialization.BinaryFormat
+import kotlinx.serialization.DeserializationStrategy
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import java.io.ByteArrayInputStream
@@ -24,8 +27,10 @@ data class VB6BinaryConfiguration(
     val emptyStringsPaddingCharacterByte get() = emptyStringsPaddingCharacter.code.toByte()
 }
 
-@ExperimentalSerializationApi
-open class VB6Binary(override val serializersModule: SerializersModule, private val configuration: VB6BinaryConfiguration) : BinaryFormat {
+open class VB6Binary(
+    override val serializersModule: SerializersModule,
+    private val configuration: VB6BinaryConfiguration
+) : BinaryFormat {
     companion object Default : VB6Binary(EmptySerializersModule(), VB6BinaryConfiguration()) {
         fun <T> byteSizeOf(serializer: KSerializer<T>, instance: T) = encodeToByteArray(serializer, instance).size
     }
