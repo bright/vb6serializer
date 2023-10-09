@@ -59,4 +59,4 @@ internal fun <T> serializedBytesOf(
     return outputStream.toByteArray()
 }
 
-internal val defaultSerializingCharset = Charset.forName("ISO-8859-8")
+internal val defaultSerializingCharset = Charset.forName("Windows-1255")
